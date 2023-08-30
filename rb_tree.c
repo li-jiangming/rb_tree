@@ -24,7 +24,7 @@ enum rb_tree_node_color_e {
 struct rb_node_t {
     struct rb_node_t *right;
     struct rb_node_t *left;
-    struct rb_node_t *parent;
+    struct rb_node_t *p;
     int key;
     enum rb_tree_node_color_e color;
 };
@@ -54,7 +54,7 @@ T rb_tree_new(void)
         if (result->nil != NULL) {
             result->nil->color = RB_TREE_NODE_COLOR_BLACK;
             result->nil->key = 0;
-            result->nil->parent = result->nil->left = result->nil->right = result->nil;
+            result->nil->p = result->nil->left = result->nil->right = result->nil;
         }
 
         result->root = result->nil;
@@ -86,7 +86,7 @@ void rb_tree_insert(T t, int key)
         }
     }
 
-    z->parent = y;
+    z->p = y;
     if (y == t->nil) {
         t->root = z;
     } else if (z->key < y->key) {
@@ -119,17 +119,17 @@ void rb_tree_delete(T t, int key)
             y = tree_minimum(z->right);
             y_orginal_color = y->color;
             x = y->right;
-            if (y->parent == z) {
-                x->parent = y;
+            if (y->p == z) {
+                x->p = y;
             } else {
                 rb_transplant(t, y, y->right);
                 y->right = z->right;
-                y->right->parent = y;
+                y->right->p = y;
             }
 
             rb_transplant(t, z, y);
             y->left = z->left;
-            y->left->parent = y;
+            y->left->p = y;
             y->color = z->color;
         }
 
@@ -215,20 +215,20 @@ void left_rotate(T t, struct rb_node_t *x)
     struct rb_node_t *y = x->right;
     x->right = y->left;
     if (y->left != t->nil) {
-        y->left->parent = x;
+        y->left->p = x;
     }
 
-    y->parent = x->parent;
-    if (x->parent == t->nil) {
+    y->p = x->p;
+    if (x->p == t->nil) {
         t->root = y;
-    } else if (x == x->parent->left) {
-        x->parent->left = y;
+    } else if (x == x->p->left) {
+        x->p->left = y;
     } else {
-        x->parent->right = y;
+        x->p->right = y;
     }
 
     y->left = x;
-    x->parent = y;
+    x->p = y;
 }
 
 void right_rotate(T t, struct rb_node_t *y)
@@ -236,60 +236,60 @@ void right_rotate(T t, struct rb_node_t *y)
     struct rb_node_t *x = y->left;
     y->left = x->right;
     if (x->right != t->nil) {
-        x->right->parent = y;
+        x->right->p = y;
     }
 
-    x->parent = y->parent;
-    if (y->parent == t->nil) {
+    x->p = y->p;
+    if (y->p == t->nil) {
         t->root = x;
-    } else if (y == y->parent->right) {
-        y->parent->right = x;
+    } else if (y == y->p->right) {
+        y->p->right = x;
     } else {
-        y->parent->left = x;
+        y->p->left = x;
     }
 
     x->right = y;
-    y->parent = x;
+    y->p = x;
 }
 
 void rb_tree_insert_fixup(T t, struct rb_node_t *z)
 {
     struct rb_node_t *y;
 
-    while (z->parent->color == RB_TREE_NODE_COLOR_RED) {
-        if (z->parent->parent == t->nil) {
+    while (z->p->color == RB_TREE_NODE_COLOR_RED) {
+        if (z->p->p == t->nil) {
             break;
         }
         
-        if (z->parent == z->parent->parent->left) {
-            y = z->parent->parent->right;
+        if (z->p == z->p->p->left) {
+            y = z->p->p->right;
             if (y->color == RB_TREE_NODE_COLOR_RED) {
-                z->parent->color = RB_TREE_NODE_COLOR_BLACK; 
+                z->p->color = RB_TREE_NODE_COLOR_BLACK; 
                 y->color = RB_TREE_NODE_COLOR_BLACK;
-                z->parent->parent->color = RB_TREE_NODE_COLOR_RED;
-                z = z->parent->parent;
-            } else if (z == z->parent->right) {
-                z = z->parent;
+                z->p->p->color = RB_TREE_NODE_COLOR_RED;
+                z = z->p->p;
+            } else if (z == z->p->right) {
+                z = z->p;
                 left_rotate(t, z);
             } else {
-                z->parent->color = RB_TREE_NODE_COLOR_BLACK;
-                z->parent->parent->color = RB_TREE_NODE_COLOR_RED;
-                right_rotate(t, z->parent->parent);
+                z->p->color = RB_TREE_NODE_COLOR_BLACK;
+                z->p->p->color = RB_TREE_NODE_COLOR_RED;
+                right_rotate(t, z->p->p);
             }
         } else {
-            y = z->parent->parent->left;
+            y = z->p->p->left;
             if (y->color == RB_TREE_NODE_COLOR_RED) {
-                z->parent->color = RB_TREE_NODE_COLOR_BLACK;
+                z->p->color = RB_TREE_NODE_COLOR_BLACK;
                 y->color = RB_TREE_NODE_COLOR_BLACK;
-                z->parent->parent->color = RB_TREE_NODE_COLOR_RED;
-                z = z->parent->parent;
-            } else if (z == z->parent->left) {
-                z = z->parent;
+                z->p->p->color = RB_TREE_NODE_COLOR_RED;
+                z = z->p->p;
+            } else if (z == z->p->left) {
+                z = z->p;
                 right_rotate(t, z);
             } else {
-                z->parent->color = RB_TREE_NODE_COLOR_BLACK;
-                z->parent->parent->color = RB_TREE_NODE_COLOR_RED;
-                left_rotate(t, z->parent->parent);
+                z->p->color = RB_TREE_NODE_COLOR_BLACK;
+                z->p->p->color = RB_TREE_NODE_COLOR_RED;
+                left_rotate(t, z->p->p);
             }
         }
 
@@ -299,72 +299,72 @@ void rb_tree_insert_fixup(T t, struct rb_node_t *z)
 
 void rb_transplant(T t, struct rb_node_t *u, struct rb_node_t *v)
 {
-    if (u->parent == t->nil) {
+    if (u->p == t->nil) {
         t->root = v;
-    } else if (u == u->parent->left) {
-        u->parent->left = v;
+    } else if (u == u->p->left) {
+        u->p->left = v;
     } else {
-        u->parent->right = v;
+        u->p->right = v;
     }
 
-    v->parent = u->parent;
+    v->p = u->p;
 }
 
 void rb_tree_delete_fixup(T t, struct rb_node_t *z)
 {
     struct rb_node_t *w = t->nil;
     while (z != t->root && z->color==RB_TREE_NODE_COLOR_BLACK) {
-        if(z == z->parent->left) {
-            w = z->parent->right;
+        if(z == z->p->left) {
+            w = z->p->right;
             if(w->color == RB_TREE_NODE_COLOR_RED) {
                 w->color = RB_TREE_NODE_COLOR_BLACK;
-                w->parent->color = RB_TREE_NODE_COLOR_RED;
-                left_rotate(t, z->parent);
-                w = z->parent->right;
+                w->p->color = RB_TREE_NODE_COLOR_RED;
+                left_rotate(t, z->p);
+                w = z->p->right;
             }
             
             if (w->left->color == RB_TREE_NODE_COLOR_BLACK && w->right->color == RB_TREE_NODE_COLOR_BLACK) {
                 w->color = RB_TREE_NODE_COLOR_RED;
-                z = z->parent;
+                z = z->p;
             } else {
                 if(w->right->color == RB_TREE_NODE_COLOR_BLACK) {
                     w->left->color = RB_TREE_NODE_COLOR_BLACK;
                     w->color = RB_TREE_NODE_COLOR_RED;
                     right_rotate(t, w);
-                    w = z->parent->right;
+                    w = z->p->right;
                 }
 
-                w->color = z->parent->color;
-                z->parent->color = RB_TREE_NODE_COLOR_BLACK;
+                w->color = z->p->color;
+                z->p->color = RB_TREE_NODE_COLOR_BLACK;
                 w->right->color = RB_TREE_NODE_COLOR_BLACK;
-                left_rotate(t, z->parent);
+                left_rotate(t, z->p);
                 z = t->root;
             }
         } else {
-            w = z->parent->left;
+            w = z->p->left;
             if(w->color == RB_TREE_NODE_COLOR_RED) {
                 w->color = RB_TREE_NODE_COLOR_BLACK;
-                z->parent->color = RB_TREE_NODE_COLOR_RED;
-                right_rotate(t, z->parent);
-                w = z->parent->left;
+                z->p->color = RB_TREE_NODE_COLOR_RED;
+                right_rotate(t, z->p);
+                w = z->p->left;
             }
         }
 
         if(w->left->color == RB_TREE_NODE_COLOR_BLACK && w->right->color == RB_TREE_NODE_COLOR_BLACK) {
             w->color = RB_TREE_NODE_COLOR_RED;
-            z = z->parent;
+            z = z->p;
         } else {
             if(w->left->color == RB_TREE_NODE_COLOR_BLACK) {
                 w->right->color = RB_TREE_NODE_COLOR_BLACK;
                 w->color = RB_TREE_NODE_COLOR_RED;
                 left_rotate(t, w);
-                w = z->parent->left;
+                w = z->p->left;
             }
 
-            w->color = z->parent->color;
-            z->parent->color = RB_TREE_NODE_COLOR_BLACK;
+            w->color = z->p->color;
+            z->p->color = RB_TREE_NODE_COLOR_BLACK;
             w->left->color = RB_TREE_NODE_COLOR_BLACK;
-            right_rotate(t, z->parent);
+            right_rotate(t, z->p);
             z = t->root;
         }
     }
@@ -379,7 +379,7 @@ struct rb_node_t *binary_tree_node_init(T t)
     if (result != NULL) {
         result->color = RB_TREE_NODE_COLOR_BLACK;
         result->key = 0;
-        result->right = result->left = result->parent = t->nil;
+        result->right = result->left = result->p = t->nil;
     }
 
     return result;
