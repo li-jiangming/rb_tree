@@ -25,7 +25,7 @@ struct rb_node_t {
     struct rb_node_t *right;
     struct rb_node_t *left;
     struct rb_node_t *parent;
-    int value;
+    int key;
     enum rb_tree_node_color_e color;
 };
 
@@ -40,9 +40,9 @@ static void binary_tree_inorder_walk(T t, struct rb_node_t *node);
 static void rb_tree_insert_fixup(T t, struct rb_node_t *z);
 static void rb_tree_delete_fixup(T t, struct rb_node_t *z);
 static void left_rotate(T t, struct rb_node_t *x);
-static struct rb_node_t *rbtree_minimum(T t, struct rb_node_t *node);
-static struct rb_node_t *rbtree_maximum(T t, struct rb_node_t *node);
-static struct rb_node_t *rbtree_search(T t, struct rb_node_t *node, int value);
+static struct rb_node_t *tree_minimum(struct rb_node_t *node);
+static struct rb_node_t *tree_maximum(struct rb_node_t *node);
+static struct rb_node_t *rbtree_search(struct rb_node_t *node, int key);
 static void rb_transplant(T t, struct rb_node_t *u, struct rb_node_t *v);
 
 T rb_tree_new(void)
@@ -53,7 +53,7 @@ T rb_tree_new(void)
         NEW(result->nil);
         if (result->nil != NULL) {
             result->nil->color = RB_TREE_NODE_COLOR_BLACK;
-            result->nil->value = 0;
+            result->nil->key = 0;
             result->nil->parent = result->nil->left = result->nil->right = result->nil;
         }
 
@@ -71,18 +71,15 @@ void rb_tree_free(T *t)
     FREE(*t);
 }
 
-void rb_tree_insert(T t, int value)
+void rb_tree_insert(T t, int key)
 {
     struct rb_node_t *z = binary_tree_node_init(t);
-    z->value = value;
+    z->key = key;
 
-    struct rb_node_t *x, *y;
-
-    y = t->nil;
-    x = t->root;
+    struct rb_node_t *x = t->root, *y = t->nil;
     while (x != t->nil) {
         y = x;
-        if (z->value < x->value) {
+        if (z->key < x->key) {
             x = x->left;
         } else {
             x = x->right;
@@ -92,7 +89,7 @@ void rb_tree_insert(T t, int value)
     z->parent = y;
     if (y == t->nil) {
         t->root = z;
-    } else if (z->value < y->value) {
+    } else if (z->key < y->key) {
         y->left = z;
     } else {
         y->right = z;
@@ -104,14 +101,13 @@ void rb_tree_insert(T t, int value)
     rb_tree_insert_fixup(t, z);
 }
 
-void rb_tree_delete(T t, int value)
+void rb_tree_delete(T t, int key)
 {
     struct rb_node_t *z = t->nil;
-    if ((z = rbtree_search(t, t->root, value)) != t->nil) {
-        struct rb_node_t *x, *y;
+    if ((z = rbtree_search(t->root, key)) != t->nil) {
+        struct rb_node_t *x = t->nil;
+        struct rb_node_t *y = z;
         enum rb_tree_node_color_e y_orginal_color;
-
-        y = z;
         y_orginal_color = y->color;
         if (z->left == t->nil) {
             x = z->right;
@@ -120,7 +116,7 @@ void rb_tree_delete(T t, int value)
             x = z->left;
             rb_transplant(t, z, z->left);
         } else {
-            y = rbtree_minimum(t, z->right);
+            y = tree_minimum(z->right);
             y_orginal_color = y->color;
             x = y->right;
             if (y->parent == z) {
@@ -143,7 +139,7 @@ void rb_tree_delete(T t, int value)
 
         FREE(z);
     } else {
-        fprintf(stderr, "can't find %d\n", value);
+        fprintf(stderr, "can't find %d\n", key);
     }
 }
 
@@ -157,9 +153,9 @@ int32_t rb_tree_minimum(T t)
 {
     int32_t result = INT32_MAX;
 
-    struct rb_node_t *node = rbtree_minimum(t, NULL);
+    struct rb_node_t *node = tree_minimum(t->root);
     if (node != t->nil) {
-        result = node->value;
+        result = node->key;
     }
 
     return result;
@@ -169,65 +165,54 @@ int32_t rb_tree_maximum(T t)
 {
     int32_t result = INT32_MIN;
 
-    struct rb_node_t *node = rbtree_maximum(t, NULL);
+    struct rb_node_t *node = tree_maximum(t->root);
     if (node != t->nil) {
-        result = node->value;
+        result = node->key;
     }
 
     return result;
 }
 
-struct rb_node_t *rbtree_minimum(T t, struct rb_node_t *node)
+struct rb_node_t *tree_minimum(struct rb_node_t *node)
 {
     struct rb_node_t *result = node;
-    if (NULL == result) {
-        result = t->root;
-    }
 
-    while (result->left != t->nil) {
+    while (result->left->left != result->left) {
         result = result->left;
     }
 
     return result;
 }
 
-struct rb_node_t *rbtree_maximum(T t, struct rb_node_t *node)
+struct rb_node_t *tree_maximum(struct rb_node_t *node)
 {
     struct rb_node_t *result = node;
-    if (NULL == result) {
-        result = t->root;
-    }
 
-    while (result->right != t->nil) {
+    while (result->right->right != result->right) {
         result = result->right;
     }
 
     return result;
 }
 
-struct rb_node_t *rbtree_search(T t, struct rb_node_t *node, int value)
+struct rb_node_t *rbtree_search(struct rb_node_t *node, int key)
 {
     struct rb_node_t *result = node;
-    if (NULL == result) {
-        result = t->root;
-    }
 
-    if (result == t->nil || value == result->value) {
+    if (result->left == result || result->right == result || key == result->key) {
         return result;
     }
 
-    if (value < result->value) {
-        return(rbtree_search(t, result->left, value));
+    if (key < result->key) {
+        return(rbtree_search(result->left, key));
     } else {
-        return(rbtree_search(t, result->right, value));
+        return(rbtree_search(result->right, key));
     }
 }
 
 void left_rotate(T t, struct rb_node_t *x)
 {
-    struct rb_node_t *y;
-
-    y = x->right;
+    struct rb_node_t *y = x->right;
     x->right = y->left;
     if (y->left != t->nil) {
         y->left->parent = x;
@@ -248,9 +233,7 @@ void left_rotate(T t, struct rb_node_t *x)
 
 void right_rotate(T t, struct rb_node_t *y)
 {
-    struct rb_node_t *x;
-
-    x = y->left;
+    struct rb_node_t *x = y->left;
     y->left = x->right;
     if (x->right != t->nil) {
         x->right->parent = y;
@@ -274,38 +257,40 @@ void rb_tree_insert_fixup(T t, struct rb_node_t *z)
     struct rb_node_t *y;
 
     while (z->parent->color == RB_TREE_NODE_COLOR_RED) {
-        if (z->parent->parent != t->nil && z->parent == z->parent->parent->left) {
+        if (z->parent->parent == t->nil) {
+            break;
+        }
+        
+        if (z->parent == z->parent->parent->left) {
             y = z->parent->parent->right;
             if (y->color == RB_TREE_NODE_COLOR_RED) {
                 z->parent->color = RB_TREE_NODE_COLOR_BLACK; 
                 y->color = RB_TREE_NODE_COLOR_BLACK;
                 z->parent->parent->color = RB_TREE_NODE_COLOR_RED;
                 z = z->parent->parent;
-                continue;
             } else if (z == z->parent->right) {
                 z = z->parent;
                 left_rotate(t, z);
+            } else {
+                z->parent->color = RB_TREE_NODE_COLOR_BLACK;
+                z->parent->parent->color = RB_TREE_NODE_COLOR_RED;
+                right_rotate(t, z->parent->parent);
             }
-
-            z->parent->color = RB_TREE_NODE_COLOR_BLACK;
-            z->parent->parent->color = RB_TREE_NODE_COLOR_RED;
-            right_rotate(t, z->parent->parent);
-        } else if (z->parent->parent != t->nil){
+        } else {
             y = z->parent->parent->left;
             if (y->color == RB_TREE_NODE_COLOR_RED) {
                 z->parent->color = RB_TREE_NODE_COLOR_BLACK;
                 y->color = RB_TREE_NODE_COLOR_BLACK;
                 z->parent->parent->color = RB_TREE_NODE_COLOR_RED;
                 z = z->parent->parent;
-                continue;
             } else if (z == z->parent->left) {
                 z = z->parent;
                 right_rotate(t, z);
+            } else {
+                z->parent->color = RB_TREE_NODE_COLOR_BLACK;
+                z->parent->parent->color = RB_TREE_NODE_COLOR_RED;
+                left_rotate(t, z->parent->parent);
             }
-
-            z->parent->color = RB_TREE_NODE_COLOR_BLACK;
-            z->parent->parent->color = RB_TREE_NODE_COLOR_RED;
-            left_rotate(t, z->parent->parent);
         }
 
         t->root->color = RB_TREE_NODE_COLOR_BLACK;
@@ -393,7 +378,7 @@ struct rb_node_t *binary_tree_node_init(T t)
     NEW(result);
     if (result != NULL) {
         result->color = RB_TREE_NODE_COLOR_BLACK;
-        result->value = 0;
+        result->key = 0;
         result->right = result->left = result->parent = t->nil;
     }
 
@@ -413,7 +398,7 @@ void binary_tree_inorder_walk(T t, struct rb_node_t *node)
 {
     if (node != t->nil) {
         binary_tree_inorder_walk(t, node->left);
-        printf("%d ", node->value);
+        printf("%d ", node->key);
         binary_tree_inorder_walk(t, node->right);
     }
 }
